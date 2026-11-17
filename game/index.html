@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starfall Salvage</title>
+<style>
+  :root {
+    --ink: #dfe9ff;
+    --dim: #8fa3c8;
+    --accent: #ffd166;
+    --danger: #ff5d73;
+    --good: #5df2a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #04060f; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #stage {
+    position: relative;
+    width: min(100vw, 160vh);
+    aspect-ratio: 8 / 5;
+    max-height: 100vh;
+    background: #04060f;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 18px;
+    pointer-events: none;
+    font-size: 15px;
+    text-shadow: 0 1px 6px rgba(0,0,0,.8);
+  }
+  .hud .left, .hud .right { display: flex; flex-direction: column; gap: 4px; }
+  .hud .right { text-align: right; }
+  .hud .score { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+  .hud .label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+  .hud .combo { color: var(--accent); font-weight: 700; }
+  .bar { width: 180px; height: 10px; border: 1px solid rgba(255,255,255,.35); border-radius: 5px; overflow: hidden; background: rgba(0,0,0,.45); }
+  .bar > div { height: 100%; transition: width .15s linear; }
+  #hullFill { background: linear-gradient(90deg, #ff5d73, #ff8fa0); }
+  #shieldFill { background: linear-gradient(90deg, #4cc9f0, #90e0ff); }
+  #dashFill { background: linear-gradient(90deg, #ffd166, #ffe9a8); }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    background: rgba(3, 5, 15, 0.55);
+    padding: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h1 {
+    font-size: 52px;
+    letter-spacing: 6px;
+    color: #fff;
+    text-shadow: 0 0 24px rgba(93, 242, 166, .55), 0 0 60px rgba(76, 201, 240, .35);
+  }
+  .overlay h2 { font-size: 30px; letter-spacing: 3px; color: #fff; }
+  .overlay p { max-width: 560px; line-height: 1.55; color: var(--ink); font-size: 16px; }
+  .overlay .keys { color: var(--dim); font-size: 14px; }
+  .overlay .keys b { color: var(--ink); }
+  .big-btn {
+    pointer-events: auto;
+    cursor: pointer;
+    border: 2px solid var(--good);
+    background: rgba(93, 242, 166, .12);
+    color: #eafff3;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 12px 34px;
+    border-radius: 10px;
+  }
+  .big-btn:hover { background: rgba(93, 242, 166, .28); }
+  .upgrades { display: flex; gap: 12px; pointer-events: auto; }
+  .card {
+    width: 168px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 209, 102, .6);
+    background: rgba(20, 24, 48, .85);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: left;
+  }
+  .card:hover { border-color: var(--accent); background: rgba(48, 40, 16, .9); }
+  .card h3 { font-size: 16px; color: var(--accent); margin-bottom: 6px; }
+  .card p { font-size: 13px; color: var(--ink); line-height: 1.45; }
+  .card .key { display: block; margin-top: 8px; font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+  #toast {
+    position: absolute;
+    left: 50%; top: 18%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(255, 209, 102, .7);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  #muteBtn {
+    position: absolute;
+    right: 14px; bottom: 12px;
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.25);
+    color: var(--dim);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game" width="1280" height="800"></canvas>
+
+    <div class="hud" id="hud">
+      <div class="left">
+        <div class="label">Score</div>
+        <div class="score" id="score">0</div>
+        <div class="combo" id="combo"></div>
+        <div class="label">Wave <span id="wave" style="color:#fff">1</span> / 10</div>
+      </div>
+      <div class="right">
+        <div class="label">Hull</div>
+        <div class="bar"><div id="hullFill" style="width:100%"></div></div>
+        <div class="label">Shield</div>
+        <div class="bar"><div id="shieldFill" style="width:100%"></div></div>
+        <div class="label">Dash <span id="dashLabel" style="color:#fff">ready</span></div>
+        <div class="bar"><div id="dashFill" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div class="overlay" id="titleScreen">
+      <h1>STARFALL<br>SALVAGE</h1>
+      <p>Debris from a shattered freighter is raining through the belt.
+      Fly your salvage skiff, blast the rocks, scoop the glowing cores —
+      and survive all <b>10 waves</b> to bring the haul home.</p>
+      <p class="keys"><b>WASD / arrows</b> fly &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Hold click</b> fire &nbsp;·&nbsp; <b>Shift / Space</b> dash &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> mute</p>
+      <button class="big-btn" id="startBtn">LAUNCH &nbsp;▶</button>
+      <p class="keys" id="bestLine">Best score: 0</p>
+    </div>
+
+    <div class="overlay hidden" id="upgradeScreen">
+      <h2>WAVE CLEARED</h2>
+      <p>Pick one upgrade before the next wave.</p>
+      <div class="upgrades" id="upgradeCards"></div>
+    </div>
+
+    <div class="overlay hidden" id="endScreen">
+      <h2 id="endTitle">GAME OVER</h2>
+      <p id="endText"></p>
+      <p class="keys" id="endStats"></p>
+      <button class="big-btn" id="restartBtn">FLY AGAIN &nbsp;↻</button>
+      <p class="keys">or press <b>R</b></p>
+    </div>
+
+    <div class="overlay hidden" id="pauseScreen">
+      <h2>PAUSED</h2>
+      <p class="keys">Press <b>P</b> to resume</p>
+    </div>
+
+    <button id="muteBtn">♪ sound: on</button>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
