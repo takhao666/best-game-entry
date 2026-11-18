@@ -12,6 +12,7 @@ export function drawWorld(ctx, world) {
   }
   drawBackground(ctx, world);
   drawCores(ctx, world);
+  drawTractorBeams(ctx, world);
   drawAsteroids(ctx, world);
   drawDrones(ctx, world);
   drawEnemyBullets(ctx, world);
@@ -31,17 +32,23 @@ function drawBackground(ctx, world) {
   ctx.fillStyle = grad;
   ctx.fillRect(-24, -24, CONFIG.width + 48, CONFIG.height + 48);
 
-  // Two soft nebula blobs, painted once per frame from fixed spots.
-  drawNebula(ctx, 220, 160, 300, 'rgba(76, 201, 240, 0.07)');
-  drawNebula(ctx, 1050, 620, 340, 'rgba(157, 120, 255, 0.08)');
-  drawNebula(ctx, 900, 120, 200, 'rgba(255, 93, 115, 0.05)');
+  // Five soft nebula blobs, painted once per frame from fixed spots.
+  drawNebula(ctx, 220, 160, 300, 'rgba(76, 201, 240, 0.09)');
+  drawNebula(ctx, 1050, 620, 340, 'rgba(157, 120, 255, 0.10)');
+  drawNebula(ctx, 900, 120, 200, 'rgba(255, 93, 115, 0.06)');
+  drawNebula(ctx, 80, 620, 260, 'rgba(93, 242, 166, 0.05)');
+  drawNebula(ctx, 640, 420, 420, 'rgba(76, 201, 240, 0.04)');
 
-  // Parallax stars.
+  // Parallax stars; the brightest ones get a little cross sparkle.
   for (const s of world.stars) {
     const tw = 0.55 + 0.45 * Math.sin(s.twinkle);
     ctx.globalAlpha = tw;
     ctx.fillStyle = '#cfe0ff';
     ctx.fillRect(s.x, s.y, s.size, s.size);
+    if (s.size >= 1.8) {
+      ctx.fillRect(s.x - 3, s.y + s.size / 2 - 0.5, 6 + s.size, 1);
+      ctx.fillRect(s.x + s.size / 2 - 0.5, s.y - 3, 1, 6 + s.size);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -93,6 +100,17 @@ function drawShip(ctx, world) {
   ctx.shadowBlur = 12;
   ctx.fill();
   ctx.shadowBlur = 0;
+  // Engine glow whenever the skiff is under thrust.
+  const speed = Math.hypot(ship.vx, ship.vy);
+  if (speed > 40) {
+    ctx.beginPath();
+    ctx.moveTo(-12, -5);
+    ctx.lineTo(-12 - 10 - speed * 0.02, 0);
+    ctx.lineTo(-12, 5);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 179, 71, 0.85)';
+    ctx.fill();
+  }
   // Engine flame when dashing.
   if (ship.dashTimer > 0) {
     ctx.beginPath();
@@ -114,12 +132,12 @@ function drawBullets(ctx, world) {
     const nx = b.vx / len;
     const ny = b.vy / len;
     ctx.beginPath();
-    ctx.moveTo(b.x - nx * 12, b.y - ny * 12);
+    ctx.moveTo(b.x - nx * 16, b.y - ny * 16);
     ctx.lineTo(b.x, b.y);
     ctx.strokeStyle = '#ffe9a8';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.shadowColor = '#ffd166';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.stroke();
   }
   ctx.restore();
@@ -154,11 +172,19 @@ function drawAsteroids(ctx, world) {
       ctx.lineTo(a.vertices[i].x, a.vertices[i].y);
     }
     ctx.closePath();
-    const shade = a.size === 'large' ? '#6b5a8e' : a.size === 'medium' ? '#7d6ba8' : '#8f7cc0';
+    // Big rocks read deep violet, medium ones slate, small ones pale:
+    // the field's danger is visible at a glance.
+    const shade = a.size === 'large' ? '#5d4a86' : a.size === 'medium' ? '#7d6ba8' : '#a08fd0';
     ctx.fillStyle = shade;
     ctx.fill();
-    ctx.strokeStyle = '#c9b8ff';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#d9ccff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Sunlit crescent on the upper-left rim.
+    ctx.beginPath();
+    ctx.arc(0, 0, a.radius * 0.92, Math.PI * 0.9, Math.PI * 1.6);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     // Cracks and craters, from the same seeded vertices.
     ctx.beginPath();
@@ -231,26 +257,66 @@ function drawCores(ctx, world) {
     const blink = 0.75 + 0.25 * Math.sin(c.pulse);
     const fade = c.age > 9 ? Math.max(0.25, (12 - c.age) / 3) : 1;
     ctx.globalAlpha = blink * fade;
-    // Glow halo.
-    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.radius * 3);
-    g.addColorStop(0, 'rgba(255, 209, 102, 0.55)');
-    g.addColorStop(1, 'rgba(255, 209, 102, 0)');
+    const rich = c.kind === 'rich';
+    const haloColor = rich ? '76, 201, 240' : '255, 209, 102';
+    // Glow halo, larger for rich prism cores.
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.radius * (rich ? 4.5 : 3.5));
+    g.addColorStop(0, `rgba(${haloColor}, ${rich ? 0.75 : 0.55})`);
+    g.addColorStop(1, `rgba(${haloColor}, 0)`);
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, c.radius * 3, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, c.radius * (rich ? 4.5 : 3.5), 0, Math.PI * 2);
     ctx.fill();
     // Diamond core.
     ctx.save();
     ctx.translate(c.x, c.y);
     ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = '#ffd166';
-    ctx.shadowColor = '#ffd166';
-    ctx.shadowBlur = 12;
+    ctx.fillStyle = rich ? '#4cc9f0' : '#ffd166';
+    ctx.shadowColor = rich ? '#4cc9f0' : '#ffd166';
+    ctx.shadowBlur = rich ? 18 : 12;
     ctx.fillRect(-c.radius * 0.7, -c.radius * 0.7, c.radius * 1.4, c.radius * 1.4);
     ctx.restore();
+    // Rich cores flash a white heart and a sparkle cross.
+    if (rich) {
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(c.x - 2, c.y - 2, 4, 4);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(c.x - c.radius * 1.6, c.y);
+      ctx.lineTo(c.x + c.radius * 1.6, c.y);
+      ctx.moveTo(c.x, c.y - c.radius * 1.6);
+      ctx.lineTo(c.x, c.y + c.radius * 1.6);
+      ctx.stroke();
+    }
   }
   ctx.restore();
   ctx.globalAlpha = 1;
+}
+
+// Faint tractor lines from the skiff to cores it is pulling in: the
+// salvage itself, made visible.
+function drawTractorBeams(ctx, world) {
+  const ship = world.ship;
+  if (!ship.alive) return;
+  ctx.save();
+  for (const c of world.cores) {
+    const d = Math.hypot(c.x - ship.x, c.y - ship.y);
+    if (d < 200 && d > ship.radius + c.radius + 4) {
+      const alpha = 0.28 * (1 - d / 220);
+      ctx.beginPath();
+      ctx.moveTo(ship.x, ship.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.strokeStyle = c.kind === 'rich' ? `rgba(76, 201, 240, ${alpha + 0.12})` : `rgba(255, 209, 102, ${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 function drawParticles(ctx, world) {

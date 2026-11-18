@@ -72,7 +72,7 @@ function createShip() {
 // A starfield that drifts slowly; stars are placed once per world.
 function makeStars(rng) {
   const stars = [];
-  for (let i = 0; i < 130; i++) {
+  for (let i = 0; i < 220; i++) {
     stars.push({
       x: rng() * CONFIG.width,
       y: rng() * CONFIG.height,
@@ -193,19 +193,23 @@ function spawnCore(world, x, y) {
   const rng = world.rng;
   const angle = rng() * Math.PI * 2;
   const speed = range(rng, 30, 90);
+  // One core in eight is a rich prism core: bigger, brighter, worth 5x.
+  // It is the moment a salvage run turns into a haul.
+  const rich = rng() < 0.125;
   world.cores.push({
     x,
     y,
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
-    radius: CONFIG.core.radius,
-    value: CONFIG.core.value,
+    radius: rich ? 11 : CONFIG.core.radius,
+    value: rich ? CONFIG.core.value * 5 : CONFIG.core.value,
+    kind: rich ? 'rich' : 'core',
     age: 0,
     pulse: rng() * Math.PI * 2,
   });
 }
 
-function burst(world, x, y, color, count, speed) {
+function burst(world, x, y, color, count, speed, sizeMax) {
   const rng = world.rng;
   for (let i = 0; i < count; i++) {
     if (world.particles.length >= CONFIG.particles.maxCount) return;
@@ -218,7 +222,7 @@ function burst(world, x, y, color, count, speed) {
       vy: Math.sin(angle) * sp,
       life: range(rng, 0.35, 0.8),
       maxLife: 0.8,
-      size: range(rng, 1.5, 4),
+      size: range(rng, 1.5, sizeMax || 4),
       color,
     });
   }
@@ -517,7 +521,7 @@ function killAsteroid(world, a, sfx) {
   world.kills += 1;
   world.score += a.score;
   addFloater(world, a.x, a.y, `+${a.score}`, '#dfe9ff');
-  burst(world, a.x, a.y, '#c9b8ff', a.size === 'large' ? 26 : 16, a.size === 'large' ? 320 : 240);
+  burst(world, a.x, a.y, '#c9b8ff', a.size === 'large' ? 34 : 16, a.size === 'large' ? 320 : 240);
   if (sfx) sfx.explosion(a.size === 'large');
   const drops = cfg.coresDropped[a.size];
   for (let i = 0; i < drops; i++) {
@@ -681,4 +685,4 @@ export function comboMultiplier(world) {
   return Math.min(1 + Math.floor(world.combo / 5), CONFIG.combo.maxMultiplier);
 }
 
-export { intRange };
+export { intRange, spawnCore, burst, updateParticles };

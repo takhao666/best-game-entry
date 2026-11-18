@@ -7,7 +7,7 @@
 **Starfall Salvage** — a neon arena salvage game. Fly your skiff through a debris field, blast asteroids and hunter drones, scoop the glowing salvage cores, chain combos, pick an upgrade between waves, and survive all 10 waves to bring the haul home.
 
 - **Fly** with WASD / arrows, **aim** with the mouse, **hold click** to fire, **Shift / Space** to dash through danger.
-- **Score** by collecting cores — pickups chain into a combo multiplier up to x8. Kills drop cores; big rocks split into smaller ones.
+- **Score** by collecting cores — pickups chain into a combo multiplier up to x8. Kills drop cores; big rocks split into smaller ones. One core in eight is a rich prism core worth 5x, and your tractor beam visibly reels nearby cores in.
 - **Upgrades** between waves: faster fire, heavier rounds, split shot, plated hull, shield coil, tractor web, ion dash, hot thrusters.
 - **Win** by clearing wave 10. **Lose** when your hull hits zero. Pause with P, mute with M, restart with R.
 - Synthesised WebAudio sound (no audio files), particles, screen shake, parallax starfield — everything runs offline from static files.

@@ -291,6 +291,11 @@ function start() {
       showOnly(null);
     }
     document.title = `Starfall Salvage — shot:${shot}`;
+    if (state === 'playing') {
+      // The frozen action frame carries its wave banner with it.
+      toastEl.textContent = `WAVE ${world.wave} — DRONES INBOUND`;
+      toastEl.style.opacity = '1';
+    }
     return;
   }
   world = createWorld(makeRng(seed));
